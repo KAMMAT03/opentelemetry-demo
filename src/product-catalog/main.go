@@ -8,6 +8,7 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"io/fs"
 	"log/slog"
@@ -314,9 +315,36 @@ func (p *productCatalog) Watch(req *healthpb.HealthCheckRequest, ws healthpb.Hea
 func (p *productCatalog) ListProducts(ctx context.Context, req *pb.Empty) (*pb.ListProductsResponse, error) {
 	span := trace.SpanFromContext(ctx)
 
+	// Check if thesis repeated computation bug is enabled
+	bugEnabled := p.checkThesisRepeatedComputation(ctx)
 	span.SetAttributes(
 		attribute.Int("app.products.count", len(catalog)),
+		attribute.Bool("thesis.bug.enabled", bugEnabled),
 	)
+
+	if bugEnabled {
+		// THESIS BUG: Repeated computation - computing expensive hash operations inside a loop
+		// This simulates a performance bug where expensive operations are performed repeatedly
+		span.SetAttributes(
+			attribute.String("code.function", "ListProducts"),
+			attribute.String("code.filepath", "src/product-catalog/main.go"),
+			attribute.String("code.namespace", "main"),
+			attribute.String("thesis.bug.type", "repeated_computation"),
+		)
+		span.AddEvent("thesis_bug_triggered: repeated_computation")
+
+		for _, product := range catalog {
+			// Perform expensive hash computation multiple times per product (inefficient)
+			for i := 0; i < 50; i++ {
+				data := fmt.Sprintf("%s-%s-%d", product.Name, product.Description, i)
+				sha256.Sum256([]byte(data))
+			}
+			// Small delay to simulate expensive database lookups
+			time.Sleep(20 * time.Millisecond)
+		}
+		logger.Info("Thesis bug: repeated computation executed in ListProducts")
+	}
+
 	return &pb.ListProductsResponse{Products: catalog}, nil
 }
 
@@ -391,6 +419,14 @@ func (p *productCatalog) checkProductFailure(ctx context.Context, id string) boo
 		ctx, "productCatalogFailure", false, openfeature.EvaluationContext{},
 	)
 	return failureEnabled
+}
+
+func (p *productCatalog) checkThesisRepeatedComputation(ctx context.Context) bool {
+	client := openfeature.NewClient("productCatalog")
+	bugEnabled, _ := client.BooleanValue(
+		ctx, "thesisRepeatedComputation", false, openfeature.EvaluationContext{},
+	)
+	return bugEnabled
 }
 
 func createClient(ctx context.Context, svcAddr string) (*grpc.ClientConn, error) {

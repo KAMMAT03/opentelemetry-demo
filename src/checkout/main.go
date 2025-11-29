@@ -306,6 +306,34 @@ func (cs *checkout) PlaceOrder(ctx context.Context, req *pb.PlaceOrderRequest) (
 		}
 	}()
 
+	// Check if thesis redundant processing bug is enabled
+	bugEnabled := cs.isFeatureFlagEnabled(ctx, "thesisRedundantProcessing")
+	span.SetAttributes(attribute.Bool("thesis.bug.enabled", bugEnabled))
+
+	if bugEnabled {
+		// THESIS BUG: Redundant data processing - processing same data multiple times
+		span.SetAttributes(
+			attribute.String("code.function", "PlaceOrder"),
+			attribute.String("code.filepath", "src/checkout/main.go"),
+			attribute.String("code.namespace", "main"),
+			attribute.String("thesis.bug.type", "redundant_processing"),
+		)
+		span.AddEvent("thesis_bug_triggered: redundant_processing")
+		logger.Info("Thesis bug: redundant processing enabled")
+
+		// Redundantly prepare order items multiple times (3 passes)
+		for i := 0; i < 3; i++ {
+			_, _ = cs.prepareOrderItemsAndShippingQuoteFromCart(ctx, req.UserId, req.UserCurrency, req.Address)
+			time.Sleep(50 * time.Millisecond) // Small delay to simulate expensive processing
+		}
+
+		// Redundant shipping calculation (called multiple times)
+		for i := 0; i < 2; i++ {
+			_, _ = cs.getUserCart(ctx, req.UserId)
+			time.Sleep(30 * time.Millisecond)
+		}
+	}
+
 	orderID, err := uuid.NewUUID()
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to generate order uuid")
@@ -321,6 +349,21 @@ func (cs *checkout) PlaceOrder(ctx context.Context, req *pb.PlaceOrderRequest) (
 		Units: 0,
 		Nanos: 0}
 	total = money.Must(money.Sum(total, prep.shippingCostLocalized))
+
+	// Calculate total with potential redundant processing
+	if bugEnabled {
+		// THESIS BUG: Calculate cart totals multiple times (redundant)
+		for pass := 0; pass < 3; pass++ {
+			redundantTotal := &pb.Money{CurrencyCode: req.UserCurrency, Units: 0, Nanos: 0}
+			for _, it := range prep.orderItems {
+				multPrice := money.MultiplySlow(it.Cost, uint32(it.GetItem().GetQuantity()))
+				redundantTotal = money.Must(money.Sum(redundantTotal, multPrice))
+				// Redundant validation with small delay
+				time.Sleep(10 * time.Millisecond)
+			}
+		}
+	}
+
 	for _, it := range prep.orderItems {
 		multPrice := money.MultiplySlow(it.Cost, uint32(it.GetItem().GetQuantity()))
 		total = money.Must(money.Sum(total, multPrice))
