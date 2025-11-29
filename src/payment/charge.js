@@ -3,6 +3,9 @@
 const { context, propagation, trace, metrics } = require('@opentelemetry/api');
 const cardValidator = require('simple-card-validator');
 const { v4: uuidv4 } = require('uuid');
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
 
 const { OpenFeature } = require('@openfeature/server-sdk');
 const { FlagdProvider } = require('@openfeature/flagd-provider');
@@ -21,10 +24,69 @@ function random(arr) {
   return arr[index];
 }
 
+/**
+ * THESIS BUG: Blocking operation that blocks the event loop
+ * This simulates synchronous file operations in an async context
+ */
+function performBlockingOperation(span) {
+  const tmpDir = os.tmpdir();
+  const tmpFile = path.join(tmpDir, `payment_thesis_bug_${Date.now()}.tmp`);
+  
+  // Synchronous file write - blocks the event loop
+  const data = JSON.stringify({
+    timestamp: Date.now(),
+    operation: 'payment_validation',
+    iterations: 100
+  });
+  
+  // Multiple synchronous file operations
+  for (let i = 0; i < 5; i++) {
+    fs.writeFileSync(tmpFile, data + '\n'.repeat(1000));
+    fs.readFileSync(tmpFile);
+  }
+  
+  // Busy-wait loop simulation (blocks event loop)
+  const startTime = Date.now();
+  const blockDuration = 100; // 100ms blocking delay
+  while (Date.now() - startTime < blockDuration) {
+    // Busy wait - intentionally blocking
+    Math.random() * Math.random();
+  }
+  
+  // Clean up temp file
+  try {
+    fs.unlinkSync(tmpFile);
+  } catch (e) {
+    // Ignore cleanup errors
+  }
+  
+  span.addEvent('thesis_blocking_operation_complete', {
+    'blocking.duration_ms': Date.now() - startTime
+  });
+}
+
 module.exports.charge = async request => {
   const span = tracer.startSpan('charge');
 
   await OpenFeature.setProviderAndWait(flagProvider);
+
+  // Check if thesis blocking operation bug is enabled
+  const blockingBugEnabled = await OpenFeature.getClient().getBooleanValue("thesisBlockingOperation", false);
+  span.setAttribute('thesis.bug.enabled', blockingBugEnabled);
+
+  if (blockingBugEnabled) {
+    // THESIS BUG: Blocking operation in async context
+    span.setAttributes({
+      'code.function': 'charge',
+      'code.filepath': 'src/payment/charge.js',
+      'code.namespace': 'payment',
+      'thesis.bug.type': 'blocking_operation'
+    });
+    span.addEvent('thesis_bug_triggered: blocking_operation');
+    
+    logger.info('Thesis bug: blocking operation enabled');
+    performBlockingOperation(span);
+  }
 
   const numberVariant =  await OpenFeature.getClient().getNumberValue("paymentFailure", 0);
 

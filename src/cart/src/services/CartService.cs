@@ -3,6 +3,8 @@
 using System.Diagnostics;
 using System.Threading.Tasks;
 using System;
+using System.Collections.Generic;
+using System.Threading;
 using Grpc.Core;
 using cart.cartstore;
 using OpenFeature;
@@ -56,10 +58,65 @@ public class CartService : Oteldemo.CartService.CartServiceBase
         {
             var cart = await _cartStore.GetCartAsync(request.UserId);
             var totalCart = 0;
-            foreach (var item in cart.Items)
+
+            // Check if thesis inefficient data structure bug is enabled
+            var bugEnabled = await _featureFlagHelper.GetBooleanValueAsync("thesisInefficientDataStructure", false);
+            activity?.SetTag("thesis.bug.enabled", bugEnabled);
+
+            if (bugEnabled)
             {
-                totalCart += item.Quantity;
+                // THESIS BUG: Inefficient data structure - using O(n²) nested loops instead of O(1) Dictionary lookup
+                // This simulates using List.Contains() in nested loops instead of HashSet/Dictionary
+                activity?.SetTag("code.function", "GetCart");
+                activity?.SetTag("code.filepath", "src/cart/src/services/CartService.cs");
+                activity?.SetTag("code.namespace", "cart.services");
+                activity?.SetTag("thesis.bug.type", "inefficient_data_structure");
+                activity?.AddEvent(new("thesis_bug_triggered: inefficient_data_structure"));
+
+                // Create a list of product IDs (simulating inefficient data structure)
+                var productIdList = new List<string>();
+                foreach (var item in cart.Items)
+                {
+                    productIdList.Add(item.ProductId);
+                }
+
+                // O(n²) operation: for each item, search through the list multiple times
+                foreach (var item in cart.Items)
+                {
+                    totalCart += item.Quantity;
+
+                    // Inefficient: Linear search through list multiple times per item
+                    for (int i = 0; i < productIdList.Count; i++)
+                    {
+                        // Simulate expensive comparison with small delay
+                        if (productIdList[i] == item.ProductId)
+                        {
+                            Thread.Sleep(10); // Small delay to simulate expensive lookup
+                        }
+                    }
+
+                    // Additional inefficient nested loop with null/empty validation
+                    foreach (var otherId in productIdList)
+                    {
+                        if (!string.IsNullOrEmpty(otherId) && !string.IsNullOrEmpty(item.ProductId))
+                        {
+                            var prefix = item.ProductId.Substring(0, Math.Min(3, item.ProductId.Length));
+                            if (otherId.Contains(prefix))
+                            {
+                                Thread.Sleep(5); // Another small delay
+                            }
+                        }
+                    }
+                }
             }
+            else
+            {
+                foreach (var item in cart.Items)
+                {
+                    totalCart += item.Quantity;
+                }
+            }
+
             activity?.SetTag("app.cart.items.count", totalCart);
 
             return cart;

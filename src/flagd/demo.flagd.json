@@ -136,6 +136,51 @@
         "10000x": 10000
       },
       "defaultVariant": "off"
+    },
+    "thesisRepeatedComputation": {
+      "state": "ENABLED",
+      "variants": {
+        "on": true,
+        "off": false
+      },
+      "defaultVariant": "off",
+      "description": "Thesis testing: Enables repeated computation bug in Product Catalog Service (Go)"
+    },
+    "thesisInefficientDataStructure": {
+      "state": "ENABLED",
+      "variants": {
+        "on": true,
+        "off": false
+      },
+      "defaultVariant": "off",
+      "description": "Thesis testing: Enables inefficient data structure bug in Cart Service (C#)"
+    },
+    "thesisInefficientIteration": {
+      "state": "ENABLED",
+      "variants": {
+        "on": true,
+        "off": false
+      },
+      "defaultVariant": "off",
+      "description": "Thesis testing: Enables inefficient iteration bug in Recommendation Service (Python)"
+    },
+    "thesisBlockingOperation": {
+      "state": "ENABLED",
+      "variants": {
+        "on": true,
+        "off": false
+      },
+      "defaultVariant": "off",
+      "description": "Thesis testing: Enables blocking operation bug in Payment Service (Node.js)"
+    },
+    "thesisRedundantProcessing": {
+      "state": "ENABLED",
+      "variants": {
+        "on": true,
+        "off": false
+      },
+      "defaultVariant": "off",
+      "description": "Thesis testing: Enables redundant processing bug in Checkout Service (Go)"
     }
   }
 }

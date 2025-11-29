@@ -7,6 +7,7 @@
 # Python
 import os
 import random
+import time
 from concurrent import futures
 
 # Pip
@@ -97,6 +98,38 @@ def get_product_list(request_product_ids):
 
         span.set_attribute("app.products.count", len(product_ids))
 
+        # Check if thesis inefficient iteration bug is enabled
+        bug_enabled = check_feature_flag("thesisInefficientIteration")
+        span.set_attribute("thesis.bug.enabled", bug_enabled)
+
+        if bug_enabled:
+            # THESIS BUG: Inefficient iteration - O(n³) complexity with triple nested loops
+            # This simulates unnecessary repeated list traversals
+            span.set_attribute("code.function", "get_product_list")
+            span.set_attribute("code.filepath", "src/recommendation/recommendation_server.py")
+            span.set_attribute("code.namespace", "recommendation")
+            span.set_attribute("thesis.bug.type", "inefficient_iteration")
+            span.add_event("thesis_bug_triggered: inefficient_iteration")
+
+            logger.info("Thesis bug: inefficient iteration enabled")
+
+            # Triple nested loop - O(n³) complexity
+            comparison_count = 0
+            for product_id in product_ids:
+                for other_id in product_ids:
+                    for third_id in product_ids:
+                        # Simulate expensive comparison operation with length validation
+                        pid_prefix = product_id[:min(2, len(product_id))] if product_id else ""
+                        oid_prefix = other_id[:min(2, len(other_id))] if other_id else ""
+                        tid_prefix = third_id[:min(2, len(third_id))] if third_id else ""
+                        if pid_prefix == oid_prefix or oid_prefix == tid_prefix:
+                            comparison_count += 1
+                        # Small sleep in inner loop to simulate expensive comparison
+                        time.sleep(0.002)  # 2ms delay per comparison
+
+            span.set_attribute("app.thesis.comparison_count", comparison_count)
+            logger.info(f"Thesis bug: performed {comparison_count} inefficient comparisons")
+
         # Create a filtered list of products excluding the products received as input
         filtered_products = list(set(product_ids) - set(request_product_ids))
         num_products = len(filtered_products)
@@ -123,7 +156,7 @@ def must_map_env(key: str):
 def check_feature_flag(flag_name: str):
     # Initialize OpenFeature
     client = api.get_client()
-    return client.get_boolean_value("recommendationCacheFailure", False)
+    return client.get_boolean_value(flag_name, False)
 
 
 if __name__ == "__main__":
