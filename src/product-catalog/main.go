@@ -333,15 +333,18 @@ func (p *productCatalog) ListProducts(ctx context.Context, req *pb.Empty) (*pb.L
 		)
 		span.AddEvent("thesis_bug_triggered: repeated_computation")
 
+		var hashSum [32]byte
 		for _, product := range catalog {
 			// Perform expensive hash computation multiple times per product (inefficient)
 			for i := 0; i < 50; i++ {
 				data := fmt.Sprintf("%s-%s-%d", product.Name, product.Description, i)
-				sha256.Sum256([]byte(data))
+				hashSum = sha256.Sum256([]byte(data))
 			}
 			// Small delay to simulate expensive database lookups
 			time.Sleep(20 * time.Millisecond)
 		}
+		// Use the hash result to prevent compiler optimization
+		span.SetAttributes(attribute.String("thesis.last_hash", fmt.Sprintf("%x", hashSum[:8])))
 		logger.Info("Thesis bug: repeated computation executed in ListProducts")
 	}
 

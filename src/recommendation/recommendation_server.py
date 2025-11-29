@@ -118,8 +118,11 @@ def get_product_list(request_product_ids):
             for product_id in product_ids:
                 for other_id in product_ids:
                     for third_id in product_ids:
-                        # Simulate expensive comparison operation
-                        if product_id[0:2] == other_id[0:2] or other_id[0:2] == third_id[0:2]:
+                        # Simulate expensive comparison operation with length validation
+                        pid_prefix = product_id[:min(2, len(product_id))] if product_id else ""
+                        oid_prefix = other_id[:min(2, len(other_id))] if other_id else ""
+                        tid_prefix = third_id[:min(2, len(third_id))] if third_id else ""
+                        if pid_prefix == oid_prefix or oid_prefix == tid_prefix:
                             comparison_count += 1
                         # Small sleep in inner loop to simulate expensive comparison
                         time.sleep(0.002)  # 2ms delay per comparison

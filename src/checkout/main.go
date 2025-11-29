@@ -353,6 +353,7 @@ func (cs *checkout) PlaceOrder(ctx context.Context, req *pb.PlaceOrderRequest) (
 	// Calculate total with potential redundant processing
 	if bugEnabled {
 		// THESIS BUG: Calculate cart totals multiple times (redundant)
+		var lastRedundantTotal *pb.Money
 		for pass := 0; pass < 3; pass++ {
 			redundantTotal := &pb.Money{CurrencyCode: req.UserCurrency, Units: 0, Nanos: 0}
 			for _, it := range prep.orderItems {
@@ -361,7 +362,11 @@ func (cs *checkout) PlaceOrder(ctx context.Context, req *pb.PlaceOrderRequest) (
 				// Redundant validation with small delay
 				time.Sleep(10 * time.Millisecond)
 			}
+			lastRedundantTotal = redundantTotal
 		}
+		// Log the redundant computation result to make the bug more realistic
+		logger.Info(fmt.Sprintf("Thesis bug: redundant total calculated %d times, last value: %d.%d %s",
+			3, lastRedundantTotal.GetUnits(), lastRedundantTotal.GetNanos(), lastRedundantTotal.GetCurrencyCode()))
 	}
 
 	for _, it := range prep.orderItems {

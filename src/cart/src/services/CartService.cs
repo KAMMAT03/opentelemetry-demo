@@ -95,12 +95,16 @@ public class CartService : Oteldemo.CartService.CartServiceBase
                         }
                     }
 
-                    // Additional inefficient nested loop
+                    // Additional inefficient nested loop with null/empty validation
                     foreach (var otherId in productIdList)
                     {
-                        if (otherId.Contains(item.ProductId.Substring(0, Math.Min(3, item.ProductId.Length))))
+                        if (!string.IsNullOrEmpty(otherId) && !string.IsNullOrEmpty(item.ProductId))
                         {
-                            Thread.Sleep(5); // Another small delay
+                            var prefix = item.ProductId.Substring(0, Math.Min(3, item.ProductId.Length));
+                            if (otherId.Contains(prefix))
+                            {
+                                Thread.Sleep(5); // Another small delay
+                            }
                         }
                     }
                 }
